@@ -20,7 +20,7 @@
 
   <groupId>co.cask.hydrator</groupId>
   <artifactId>hydrator-plugins</artifactId>
-  <version>1.8.5</version>
+  <version>1.8.5.1</version>
   <packaging>pom</packaging>
   <name>Hydrator Plugin Collection</name>
   <description>A collection of plugins for Cask Hydrator.</description>
@@ -43,14 +43,14 @@
     <module>condition-plugins</module>
   </modules>
 
-  <licenses>
+  <!--<licenses>
     <license>
       <name>The Apache Software License, Version 2.0</name>
       <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
       <distribution>repo</distribution>
       <comments>A business-friendly OSS license</comments>
     </license>
-  </licenses>
+  </licenses>-->
 
   <developers>
     <developer>
@@ -61,7 +61,7 @@
     </developer>
   </developers>
 
-  <scm>
+  <!--<scm>
     <connection>scm:git:https://github.com/caskdata/hydrator-plugins.git</connection>
     <developerConnection>scm:git:git@github.com:caskdata/hydrator-plugins.git</developerConnection>
     <url>https://github.com/caskdata/hydrator-plugins.git</url>
@@ -81,7 +81,7 @@
       <id>cask</id>
       <url>http://cask.co</url>
     </site>
-  </distributionManagement>
+  </distributionManagement>-->
 
   <issueManagement>
     <url>https://issues.cask.co/browse/CDAP</url>
@@ -99,7 +99,7 @@
     <cassandraunit.version>2.0.2.2</cassandraunit.version>
     <commons-codec.version>1.10</commons-codec.version>
     <commons-httpclient.version>3.1</commons-httpclient.version>
-    <cdap.version>4.3.5</cdap.version>
+    <cdap.version>4.3.5.4</cdap.version>
     <datastax.version>2.0.5</datastax.version>
     <dumbster.version>1.6</dumbster.version>
     <es.version>1.6.0</es.version>
@@ -132,7 +132,7 @@
 
 
 
-  <repositories>
+  <!--<repositories>
     <repository>
       <id>sonatype</id>
       <url>https://oss.sonatype.org/content/groups/public</url>
@@ -141,7 +141,7 @@
       <id>sonatype-snapshots</id>
       <url>https://oss.sonatype.org/content/repositories/snapshots</url>
     </repository>
-  </repositories>
+  </repositories>-->
 
   <dependencyManagement>
     <dependencies>

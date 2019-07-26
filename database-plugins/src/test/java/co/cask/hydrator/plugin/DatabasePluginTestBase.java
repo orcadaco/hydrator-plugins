@@ -1,5 +1,5 @@
 /*
- * Copyright © 2015 Cask Data, Inc.
+ * Copyright © 2015-2018 Cask Data, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -42,6 +42,7 @@ import co.cask.hydrator.plugin.db.batch.source.DBSource;
 import co.cask.hydrator.plugin.db.batch.source.DataDrivenETLDBInputFormat;
 import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import org.hsqldb.Server;
 import org.hsqldb.jdbc.JDBCDriver;
@@ -63,8 +64,8 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -81,9 +82,10 @@ public class DatabasePluginTestBase extends HydratorTestBase {
   protected static final long CURRENT_TS = System.currentTimeMillis();
 
   private static int startCount;
-  protected static HSQLDBServer hsqlDBServer;
+  private static HSQLDBServer hsqlDBServer;
   protected static Schema schema;
-  public static boolean tearDown = true;
+  //  private static Schema schema;
+  static boolean tearDown = true;
 
   @ClassRule
   public static TemporaryFolder temporaryFolder = new TemporaryFolder();
@@ -113,6 +115,7 @@ public class DatabasePluginTestBase extends HydratorTestBase {
 
 
     String hsqlDBDir = temporaryFolder.newFolder("hsqldb").getAbsolutePath();
+    TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
     hsqlDBServer = new HSQLDBServer(hsqlDBDir, "testdb");
     hsqlDBServer.start();
     try (Connection conn = hsqlDBServer.getConnection()) {
@@ -151,7 +154,6 @@ public class DatabasePluginTestBase extends HydratorTestBase {
                              Schema.Field.of("CHAR_COL", nullableString),
                              Schema.Field.of("LONGVARCHAR_COL", nullableString),
                              Schema.Field.of("VARBINARY_COL", nullableBytes));
-
   }
 
 
@@ -204,8 +206,7 @@ public class DatabasePluginTestBase extends HydratorTestBase {
                                 "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
       PreparedStatement pStmt2 =
         conn.prepareStatement("INSERT INTO \"your_table\" " +
-                                "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-    ) {
+                                "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
       // insert the same data into both tables: my_table and your_table
       final PreparedStatement[] preparedStatements = {pStmt1, pStmt2};
       for (PreparedStatement pStmt : preparedStatements) {
@@ -256,13 +257,12 @@ public class DatabasePluginTestBase extends HydratorTestBase {
   }
 
   protected static void assertRuntimeFailure(ApplicationId appId, ETLBatchConfig etlConfig,
-                                             String failureMessage) throws Exception {
+                                             String failureMessage, int runCount) throws Exception {
     AppRequest<ETLBatchConfig> appRequest = new AppRequest<>(DATAPIPELINE_ARTIFACT, etlConfig);
     ApplicationManager appManager = deployApplication(appId, appRequest);
     final WorkflowManager workflowManager = appManager.getWorkflowManager(SmartWorkflow.NAME);
     workflowManager.start();
-    // Waiting for only 1 minute here because MR should have failed in the prepareRun() stage
-    workflowManager.waitForRun(ProgramRunStatus.FAILED, 1, TimeUnit.MINUTES);
+    workflowManager.waitForRuns(ProgramRunStatus.FAILED, runCount, 3, TimeUnit.MINUTES);
   }
 
   protected ApplicationManager deployETL(ETLPlugin sourcePlugin, ETLPlugin sinkPlugin, String appName)
@@ -277,12 +277,12 @@ public class DatabasePluginTestBase extends HydratorTestBase {
 
     AppRequest<ETLBatchConfig> appRequest = new AppRequest<>(DATAPIPELINE_ARTIFACT, etlConfig);
     ApplicationId appId = NamespaceId.DEFAULT.app(appName);
-    return deployApplication(appId.toId(), appRequest);
+    return deployApplication(appId, appRequest);
   }
 
   protected void runETLOnce(ApplicationManager appManager) throws TimeoutException,
-                                                                  InterruptedException, ExecutionException {
-    runETLOnce(appManager, new HashMap<String, String>());
+    InterruptedException, ExecutionException {
+    runETLOnce(appManager, ImmutableMap.<String, String>of());
   }
 
   protected void runETLOnce(ApplicationManager appManager,
@@ -309,15 +309,15 @@ public class DatabasePluginTestBase extends HydratorTestBase {
     hsqlDBServer.stop();
   }
 
-  public String getConnectionURL() {
+  protected String getConnectionURL() {
     return hsqlDBServer == null ? null : hsqlDBServer.getConnectionUrl();
   }
 
-  public String getDatabase() {
+  protected String getDatabase() {
     return hsqlDBServer == null ? null : hsqlDBServer.getDatabase();
   }
 
-  public Connection getConnection() {
+  protected Connection getConnection() {
     return hsqlDBServer == null ? null : hsqlDBServer.getConnection();
   }
 
@@ -335,17 +335,17 @@ public class DatabasePluginTestBase extends HydratorTestBase {
       this.server = new Server();
     }
 
-    public int start() {
+    void start() {
       server.setDatabasePath(0, locationUrl);
       server.setDatabaseName(0, database);
-      return server.start();
+      server.start();
     }
 
-    public int stop() {
-      return server.stop();
+    void stop() {
+      server.stop();
     }
 
-    public Connection getConnection() {
+    Connection getConnection() {
       try {
         Class.forName(hsqlDBDriver);
         return DriverManager.getConnection(connectionUrl);
@@ -354,11 +354,11 @@ public class DatabasePluginTestBase extends HydratorTestBase {
       }
     }
 
-    public String getConnectionUrl() {
+    String getConnectionUrl() {
       return this.connectionUrl;
     }
 
-    public String getDatabase() {
+    String getDatabase() {
       return this.database;
     }
   }
