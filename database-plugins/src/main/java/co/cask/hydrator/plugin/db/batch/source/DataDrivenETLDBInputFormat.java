@@ -26,10 +26,10 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
-import org.apache.hadoop.mapreduce.lib.db.DBConfiguration;
 import org.apache.hadoop.mapreduce.lib.db.DBInputFormat;
-import org.apache.hadoop.mapreduce.lib.db.DBWritable;
-import org.apache.hadoop.mapreduce.lib.db.DataDrivenDBInputFormat;
+import org.apache.sqoop.mapreduce.DBWritable;
+import org.apache.sqoop.mapreduce.db.DBConfiguration;
+import org.apache.sqoop.mapreduce.db.DataDrivenDBInputFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,12 +49,13 @@ public class DataDrivenETLDBInputFormat extends DataDrivenDBInputFormat {
   private static final Logger LOG = LoggerFactory.getLogger(DataDrivenETLDBInputFormat.class);
   private Driver driver;
   private JDBCDriverShim driverShim;
+  private Connection connection;
 
-  static void setInput(Configuration conf,
-                       Class<? extends DBWritable> inputClass,
-                       String inputQuery,
-                       String inputBoundingQuery,
-                       boolean enableAutoCommit) {
+  public static void setInput(Configuration conf,
+                              Class<? extends DBWritable> inputClass,
+                              String inputQuery,
+                              String inputBoundingQuery,
+                              boolean enableAutoCommit) {
     DBConfiguration dbConf = new DBConfiguration(conf);
     dbConf.setInputClass(inputClass);
     dbConf.setInputQuery(inputQuery);
@@ -65,6 +66,7 @@ public class DataDrivenETLDBInputFormat extends DataDrivenDBInputFormat {
   @Override
   public Connection getConnection() {
     if (this.connection == null) {
+      LOG.info("DB input format with performance improvements");
       Configuration conf = getConf();
       try {
         String url = conf.get(DBConfiguration.URL_PROPERTY);
@@ -88,13 +90,13 @@ public class DataDrivenETLDBInputFormat extends DataDrivenDBInputFormat {
             LOG.debug("Registered JDBC driver via shim {}. Actual Driver {}.", driverShim, driver);
           }
         }
-
-        Properties properties =
-          ConnectionConfig.getConnectionArguments(conf.get(DBUtils.CONNECTION_ARGUMENTS),
-                                                  conf.get(DBConfiguration.USERNAME_PROPERTY),
-                                                  conf.get(DBConfiguration.PASSWORD_PROPERTY));
-        connection = DriverManager.getConnection(url, properties);
-
+        if (conf.get(DBConfiguration.USERNAME_PROPERTY) == null) {
+          this.connection = DriverManager.getConnection(url);
+        } else {
+          this.connection = DriverManager.getConnection(url,
+                                                        conf.get(DBConfiguration.USERNAME_PROPERTY),
+                                                        conf.get("co.cask.cdap.jdbc.passwd"));
+        }
 
         boolean autoCommitEnabled = conf.getBoolean(AUTO_COMMIT_ENABLED, false);
         if (autoCommitEnabled) {
@@ -103,9 +105,8 @@ public class DataDrivenETLDBInputFormat extends DataDrivenDBInputFormat {
         } else {
           this.connection.setAutoCommit(false);
         }
-        String level = conf.get(TransactionIsolationLevel.CONF_KEY);
-        LOG.debug("Transaction isolation level: {}", level);
-        connection.setTransactionIsolation(TransactionIsolationLevel.getLevel(level));
+        // TODO: make this configurable
+        this.connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
       } catch (Exception e) {
         throw Throwables.propagate(e);
       }
