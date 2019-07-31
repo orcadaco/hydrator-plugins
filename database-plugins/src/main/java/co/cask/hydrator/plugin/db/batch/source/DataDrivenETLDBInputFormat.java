@@ -51,7 +51,7 @@ public class DataDrivenETLDBInputFormat extends DataDrivenDBInputFormat {
   private JDBCDriverShim driverShim;
   private Connection connection;
 
-  public static void setInput(Configuration conf,
+  static void setInput(Configuration conf,
                               Class<? extends DBWritable> inputClass,
                               String inputQuery,
                               String inputBoundingQuery,
@@ -90,13 +90,11 @@ public class DataDrivenETLDBInputFormat extends DataDrivenDBInputFormat {
             LOG.debug("Registered JDBC driver via shim {}. Actual Driver {}.", driverShim, driver);
           }
         }
-        if (conf.get(DBConfiguration.USERNAME_PROPERTY) == null) {
-          this.connection = DriverManager.getConnection(url);
-        } else {
-          this.connection = DriverManager.getConnection(url,
-                                                        conf.get(DBConfiguration.USERNAME_PROPERTY),
-                                                        conf.get("co.cask.cdap.jdbc.passwd"));
-        }
+        Properties properties =
+          ConnectionConfig.getConnectionArguments(conf.get(DBUtils.CONNECTION_ARGUMENTS),
+                                                  conf.get(DBConfiguration.USERNAME_PROPERTY),
+                                                  conf.get(DBConfiguration.PASSWORD_PROPERTY));
+        connection = DriverManager.getConnection(url, properties);
 
         boolean autoCommitEnabled = conf.getBoolean(AUTO_COMMIT_ENABLED, false);
         if (autoCommitEnabled) {
@@ -105,8 +103,9 @@ public class DataDrivenETLDBInputFormat extends DataDrivenDBInputFormat {
         } else {
           this.connection.setAutoCommit(false);
         }
-        // TODO: make this configurable
-        this.connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
+        String level = conf.get(TransactionIsolationLevel.CONF_KEY);
+        LOG.debug("Transaction isolation level: {}", level);
+        connection.setTransactionIsolation(TransactionIsolationLevel.getLevel(level));
       } catch (Exception e) {
         throw Throwables.propagate(e);
       }
