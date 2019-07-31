@@ -50,9 +50,12 @@ import javax.sql.rowset.serial.SerialBlob;
  * @see org.apache.hadoop.mapreduce.lib.db.DBOutputFormat DBOutputFormat
  * @see DBWritable DBWritable
  */
-public class DBRecord implements Writable, DBWritable, Configurable {
+public class DBRecord implements Writable, org.apache.sqoop.mapreduce.DBWritable, DBWritable, Configurable {
+
   private StructuredRecord record;
   private Configuration conf;
+  private List<Schema.Field> schemaFields;
+  private Schema schema;
 
   /**
    * Need to cache {@link ResultSetMetaData} of the record for use during writing to a table.
@@ -96,8 +99,10 @@ public class DBRecord implements Writable, DBWritable, Configurable {
    */
   public void readFields(ResultSet resultSet) throws SQLException {
     ResultSetMetaData metadata = resultSet.getMetaData();
-    List<Schema.Field> schemaFields = DBUtils.getSchemaFields(resultSet, conf.get(DBUtils.OVERRIDE_SCHEMA));
-    Schema schema = Schema.recordOf("dbRecord", schemaFields);
+    if (schemaFields == null) {
+      schemaFields = DBUtils.getSchemaFields(resultSet, conf.get(DBUtils.OVERRIDE_SCHEMA));
+      schema = Schema.recordOf("dbRecord", schemaFields);
+    }
     StructuredRecord.Builder recordBuilder = StructuredRecord.builder(schema);
     for (int i = 0; i < schemaFields.size(); i++) {
       Schema.Field field = schemaFields.get(i);
