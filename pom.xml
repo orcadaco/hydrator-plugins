@@ -39,18 +39,18 @@
     <module>solrsearch-plugins</module>
     <module>spark-plugins</module>
     <module>transform-plugins</module>
-    <module>wrangler-transform</module>
-    <module>condition-plugins</module>
+    <!--module>wrangler-transform</module>
+    <module>condition-plugins</module-->
   </modules>
 
-  <!--<licenses>
+  <licenses>
     <license>
       <name>The Apache Software License, Version 2.0</name>
       <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
       <distribution>repo</distribution>
       <comments>A business-friendly OSS license</comments>
     </license>
-  </licenses>-->
+  </licenses>
 
   <developers>
     <developer>
@@ -61,7 +61,7 @@
     </developer>
   </developers>
 
-  <!--<scm>
+  <scm>
     <connection>scm:git:https://github.com/caskdata/hydrator-plugins.git</connection>
     <developerConnection>scm:git:git@github.com:caskdata/hydrator-plugins.git</developerConnection>
     <url>https://github.com/caskdata/hydrator-plugins.git</url>
@@ -81,7 +81,7 @@
       <id>cask</id>
       <url>http://cask.co</url>
     </site>
-  </distributionManagement>-->
+  </distributionManagement>
 
   <issueManagement>
     <url>https://issues.cask.co/browse/CDAP</url>
@@ -115,7 +115,7 @@
     <kafka.version>0.8.2.2</kafka.version>
     <mockftp.version>2.6</mockftp.version>
     <snappy.version>1.1.2</snappy.version>
-    <slf4j.version>1.7.5</slf4j.version>
+    <slf4j.version>1.7.12</slf4j.version>
     <twill.version>0.9.0</twill.version>
     <twitter4j.version>4.0.3</twitter4j.version>
     <zookeeper.version>3.4.5</zookeeper.version>
@@ -128,11 +128,12 @@
     <app.parents>system:cdap-data-pipeline[4.3.0-SNAPSHOT,4.4.0-SNAPSHOT),system:cdap-data-streams[4.3.0-SNAPSHOT,4.4.0-SNAPSHOT)</app.parents>
     <!-- this is here because project.basedir evaluates to null in the script build step -->
     <main.basedir>${project.basedir}</main.basedir>
+    <sqoop.version>1.4.7</sqoop.version>
   </properties>
 
 
 
-  <!--<repositories>
+  <repositories>
     <repository>
       <id>sonatype</id>
       <url>https://oss.sonatype.org/content/groups/public</url>
@@ -141,7 +142,7 @@
       <id>sonatype-snapshots</id>
       <url>https://oss.sonatype.org/content/repositories/snapshots</url>
     </repository>
-  </repositories>-->
+  </repositories>
 
   <dependencyManagement>
     <dependencies>
@@ -630,6 +631,17 @@
         <groupId>org.apache.spark</groupId>
         <artifactId>spark-streaming-twitter_2.10</artifactId>
         <version>1.6.2</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.sqoop</groupId>
+        <artifactId>sqoop</artifactId>
+        <version>${sqoop.version}</version>
+        <classifier>hadoop260</classifier>
+      </dependency>
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>log4j-over-slf4j</artifactId>
+        <version>${slf4j.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
