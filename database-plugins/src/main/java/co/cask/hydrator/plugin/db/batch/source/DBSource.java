@@ -46,8 +46,9 @@ import co.cask.hydrator.plugin.db.batch.TransactionIsolationLevel;
 import com.google.common.base.Strings;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapreduce.MRJobConfig;
-import org.apache.hadoop.mapreduce.lib.db.DBConfiguration;
+import org.apache.sqoop.mapreduce.db.DBConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -75,6 +76,7 @@ public class DBSource extends ReferenceBatchSource<LongWritable, DBRecord, Struc
   private final DBSourceConfig sourceConfig;
   private final DBManager dbManager;
   private Class<? extends Driver> driverClass;
+  private FieldCase fieldCase;
 
   public DBSource(DBSourceConfig sourceConfig) {
     super(new ReferencePluginConfig(sourceConfig.referenceName));
@@ -123,7 +125,7 @@ public class DBSource extends ReferenceBatchSource<LongWritable, DBRecord, Struc
   @Path("getSchema")
   public Schema getSchema(GetSchemaRequest request,
                           EndpointPluginContext pluginContext) throws IllegalAccessException,
-    SQLException, InstantiationException {
+    SQLException, InstantiationException, ClassNotFoundException {
     DriverCleanup driverCleanup;
     try {
       driverCleanup = loadPluginClassAndGetDriver(request, pluginContext);
@@ -158,7 +160,7 @@ public class DBSource extends ReferenceBatchSource<LongWritable, DBRecord, Struc
   }
 
   private DriverCleanup loadPluginClassAndGetDriver(GetSchemaRequest request, EndpointPluginContext pluginContext)
-    throws IllegalAccessException, InstantiationException, SQLException {
+    throws IllegalAccessException, InstantiationException, SQLException, ClassNotFoundException {
     Class<? extends Driver> driverClass =
       pluginContext.loadPluginClass(request.getJDBCPluginType(),
                                     request.jdbcPluginName, PluginProperties.builder().build());
@@ -194,16 +196,21 @@ public class DBSource extends ReferenceBatchSource<LongWritable, DBRecord, Struc
                 "boundingQuery = {}; transaction isolation level: {}",
               sourceConfig.jdbcPluginType, sourceConfig.jdbcPluginName,
               sourceConfig.connectionString, sourceConfig.getImportQuery(), sourceConfig.getBoundingQuery());
-    Configuration hConf = new Configuration();
+    JobConf hConf = new JobConf();
     hConf.clear();
 
     // Load the plugin class to make sure it is available.
     Class<? extends Driver> driverClass = context.loadPluginClass(getJDBCPluginId());
+
+    // TODO: Make fetch size configurable
+    int fetchSize = 1000;
     if (sourceConfig.user == null && sourceConfig.password == null) {
-      DBConfiguration.configureDB(hConf, driverClass.getName(), sourceConfig.connectionString);
+      DBConfiguration.configureDB(hConf, driverClass.getName(), sourceConfig.connectionString, fetchSize);
     } else {
       DBConfiguration.configureDB(hConf, driverClass.getName(), sourceConfig.connectionString,
-                                  sourceConfig.user, sourceConfig.password);
+                                  sourceConfig.user, sourceConfig.password, fetchSize);
+      // TODO: figure out why password is not being set in credentials
+      hConf.set("co.cask.cdap.jdbc.passwd", sourceConfig.password);
     }
     DataDrivenETLDBInputFormat.setInput(hConf, DBRecord.class,
                                         sourceConfig.getImportQuery(), sourceConfig.getBoundingQuery(),
@@ -229,18 +236,19 @@ public class DBSource extends ReferenceBatchSource<LongWritable, DBRecord, Struc
     }
     context.setInput(Input.of(sourceConfig.referenceName,
                               new SourceInputFormatProvider(DataDrivenETLDBInputFormat.class, hConf)));
+    LOG.info("DB source with performance improvements");
   }
 
   @Override
   public void initialize(BatchRuntimeContext context) throws Exception {
     super.initialize(context);
-    driverClass = context.loadPluginClass(getJDBCPluginId());
+    driverClass = context.loadPluginClass(getJDBCPluginId());;
+    fieldCase = FieldCase.toFieldCase(sourceConfig.columnNameCase);
   }
 
   @Override
   public void transform(KeyValue<LongWritable, DBRecord> input, Emitter<StructuredRecord> emitter) throws Exception {
-    emitter.emit(StructuredRecordUtils.convertCase(
-      input.getValue().getRecord(), FieldCase.toFieldCase(sourceConfig.columnNameCase)));
+    emitter.emit(StructuredRecordUtils.convertCase(input.getValue().getRecord(), fieldCase));
   }
 
   @Override
